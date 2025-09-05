@@ -3,8 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Кубик-прыгун: платформы и монетки</title>
-  <link rel="preload" as="script" href="game.js">
+  <title>Кубик-прыгун: День рождения Радмира</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -22,33 +21,35 @@
 
     <div class="controls">
       <div class="row">
-        <button class="btn" data-key="KeyA">A</button>
-        <button class="btn" data-key="KeyS">S</button>
-        <button class="btn" data-key="KeyD">D</button>
+        <button class="btn" data-key="KeyA" type="button">A</button>
+        <button class="btn" data-key="KeyS" type="button">S</button>
+        <button class="btn" data-key="KeyD" type="button">D</button>
       </div>
       <div class="row">
-        <button class="btn wide" data-key="Space">Прыжок</button>
+        <button class="btn wide" data-key="Space" type="button">Прыжок</button>
       </div>
     </div>
 
-    
-    <div id="startModal" class="modal" aria-live="polite" aria-atomic="true">
+    <!-- START GREETING MODAL -->
+    <div id="startModal" class="modal" role="dialog" aria-modal="true">
       <div class="panel">
         <h2>Привет, Радмир!</h2>
         <p>Если хочешь съесть тортик, придётся до него дойти 🎂</p>
         <div class="actions">
-          <button id="startBtn" class="btn">Начать игру</button>
+          <button id="startBtn" class="btn" type="button">Начать игру</button>
         </div>
+        <p class="hint">Управление: A/D или ←/→ — ходьба, Space — прыжок. P — пауза.</p>
       </div>
     </div>
 
-    <div id="modal" class="modal hidden" aria-live="polite" aria-atomic="true">
+    <!-- PAUSE / GAME OVER MODAL -->
+    <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="panel">
         <h2 id="modal-title">Пауза</h2>
         <p id="modal-text">Нажми «Продолжить», чтобы играть дальше.</p>
         <div class="actions">
-          <button id="resumeBtn" class="btn">Продолжить</button>
-          <button id="restartBtn" class="btn">Заново</button>
+          <button id="resumeBtn" class="btn" type="button">Продолжить</button>
+          <button id="restartBtn" class="btn" type="button">Заново</button>
         </div>
         <p class="hint">Управление: A/D или ←/→ — ходьба, Space — прыжок. P — пауза.</p>
       </div>
