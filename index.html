@@ -1,5 +1,387 @@
 <!doctype html>
 <html lang="ru">
-<head><meta charset="utf-8"><title>Кубик‑прыгун 2.1</title></head>
-<body><h1>Кубик‑прыгун 2.1 — Радмир Party</h1><p>Скопируй этот index.html в репозиторий Radmir-game.</p></body>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Кубик‑прыгун 2.1 — Радмир Party (мультиуровни, рекорды, скины, звуки)</title>
+  <style>
+    :root {
+      --bg: #0b1020; --fg: #e6f0ff; --accent: #5dd3ff; --good: #9bff8a; --warn: #ffd46b; --bad: #ff7a7a;
+      --tile: #1b2340; --tile2: #232d56; --shadow: rgba(0,0,0,.35);
+    }
+    html, body { height: 100%; margin: 0; background: var(--bg); color: var(--fg); font: 500 16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif; }
+    .wrap { position: fixed; inset: 0; display: grid; grid-template-rows: auto 1fr auto; }
+    header, footer { padding: 8px 12px; display:flex; align-items:center; gap:12px; backdrop-filter: blur(6px); background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02)); border-bottom: 1px solid rgba(255,255,255,.06); }
+    footer { border-top: 1px solid rgba(255,255,255,.06); border-bottom: none; }
+    header h1 { font-size: 16px; margin: 0; letter-spacing:.2px; opacity:.9 }
+    .hud { display:flex; gap: 16px; margin-left: auto; font-weight: 600; }
+    .badge { padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+    .badge.good { color: var(--good); } .badge.warn { color: var(--warn); } .badge.bad { color: var(--bad); }
+
+    canvas { width: 100%; height: 100%; display:block; background: radial-gradient(1200px 600px at 70% -20%, rgba(93,211,255,.16), transparent 60%), radial-gradient(800px 500px at 20% 120%, rgba(155,255,138,.12), transparent 60%), #0b1020; }
+
+    .touch { position: fixed; inset: 0; pointer-events: none; }
+    .btn { pointer-events: auto; position: absolute; bottom: 18px; width: 84px; height: 84px; border-radius: 50%; background: rgba(255,255,255,.08); box-shadow: 0 12px 30px var(--shadow), inset 0 0 0 1px rgba(255,255,255,.12); display:grid; place-items:center; user-select:none; -webkit-user-select:none; touch-action: none; }
+    .btn:active { transform: translateY(1px) scale(.99); }
+    .btn span { font-size: 22px; opacity:.9 }
+    .btn.left { left: 18px; } .btn.right { left: 118px; } .btn.jump { right: 18px; width:96px; height:96px; background: rgba(93,211,255,.14); }
+
+    .panel { position: absolute; inset: 0; display: grid; place-items: center; background: linear-gradient(180deg, rgba(11,16,32,.8), rgba(11,16,32,.6)); backdrop-filter: blur(6px); }
+    .card { width: min(620px, 92vw); border-radius: 18px; background: rgba(17,24,48,.85); box-shadow: 0 20px 60px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.06); padding: 22px; }
+    .card h2 { margin: 0 0 8px; font-size: 20px; }
+    .card p { margin: 8px 0; opacity: .9; }
+    .row { display:flex; gap: 12px; align-items:center; flex-wrap: wrap; margin-top: 14px; }
+    .grid { display:grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin-top: 10px; }
+    .field { display:grid; gap:6px; }
+    .primary { appearance: none; border: none; background: linear-gradient(180deg, #5dd3ff, #4fb6dd); color: #041017; font-weight: 700; padding: 10px 16px; border-radius: 12px; cursor: pointer; box-shadow: 0 10px 30px rgba(93,211,255,.35); }
+    .ghost { appearance: none; border: 1px solid rgba(255,255,255,.25); background: transparent; color: var(--fg); font-weight: 700; padding: 10px 16px; border-radius: 12px; cursor: pointer; }
+    .kbd { font: 600 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; padding: 3px 8px; border-radius: 8px; background: rgba(255,255,255,.08); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); }
+    select, .input { appearance:none; background: rgba(255,255,255,.06); color: var(--fg); border: 1px solid rgba(255,255,255,.18); border-radius: 10px; padding: 10px 12px; font-weight: 700; }
+
+    @media (min-width: 900px) { .touch { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Кубик‑прыгун 2.1 — Радмир Party</h1>
+      <div class="hud">
+        <div class="badge" id="hudLevel">Уровень: 1</div>
+        <div class="badge" id="hudCoins">Монет: 0</div>
+        <div class="badge warn" id="hudTime">Время: 60</div>
+        <div class="badge" id="hudLives">Жизни: 3</div>
+        <div class="badge" id="hudFps" title="FPS / Δ времени">—</div>
+      </div>
+    </header>
+
+    <canvas id="game"></canvas>
+
+    <footer>
+      Управление: <span class="kbd">A/D</span> или <span class="kbd">←/→</span> — ходьба, <span class="kbd">Space</span> — прыжок, <span class="kbd">P</span> — пауза.
+      <div style="margin-left:auto;opacity:.75">Canvas‑рендер, фиксированный таймстеп, пул частиц, HiDPI, WebAudio.</div>
+    </footer>
+  </div>
+
+  <div class="touch" id="touch">
+    <div class="btn left" data-act="left"><span>◀︎</span></div>
+    <div class="btn right" data-act="right"><span>▶︎</span></div>
+    <div class="btn jump" data-act="jump"><span>⤴︎</span></div>
+  </div>
+
+  <!-- Экраны состояний -->
+  <div class="panel" id="panelStart">
+    <div class="card">
+      <h2>Привет, Радмир! 🎂</h2>
+      <p>Доберись до тортика, собирай монеты и побивай рекорды. Выбери сложность и вид кубика.</p>
+      <div class="grid">
+        <div class="field"><label>Сложность</label>
+          <select id="selDiff">
+            <option value="easy">Лёгкая — больше времени и жизней</option>
+            <option value="normal" selected>Нормальная — баланс</option>
+            <option value="hard">Сложная — меньше времени, больше шипов</option>
+          </select>
+        </div>
+        <div class="field"><label>Скин кубика</label>
+          <select id="selSkin">
+            <option value="blue" selected>Синий</option>
+            <option value="green">Зелёный</option>
+            <option value="pink">Розовый</option>
+            <option value="gold">Золотой</option>
+          </select>
+        </div>
+        <div class="field"><label>Уровень</label>
+          <select id="selLevel">
+            <option value="0" selected>Уровень 1</option>
+            <option value="1">Уровень 2</option>
+            <option value="2">Уровень 3</option>
+            <option value="rand">Случайный</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <button class="primary" id="btnStart">Старт</button>
+        <button class="ghost" id="btnTutorial">Управление</button>
+        <button class="ghost" id="btnBoard">Рекорды</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="panelPause" hidden>
+    <div class="card">
+      <h2>Пауза ⏸</h2>
+      <div class="row">
+        <button class="primary" id="btnResume">Продолжить</button>
+        <button class="ghost" id="btnRestart">Заново</button>
+        <button class="ghost" id="btnQuit">В меню</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="panelFinish" hidden>
+    <div class="card">
+      <h2 id="finishTitle">С днём рождения! 🎉</h2>
+      <p id="finishText">Ты успел к тортику — молодец!</p>
+      <p id="finishScore" style="opacity:.9"></p>
+      <div class="row">
+        <button class="primary" id="btnNext">Следующий уровень</button>
+        <button class="ghost" id="btnAgain">Ещё раз</button>
+        <button class="ghost" id="btnMenu">В меню</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="panelBoard" hidden>
+    <div class="card">
+      <h2>Рекорды 🏆</h2>
+      <div id="boardList"></div>
+      <div class="row"><button class="ghost" id="btnBoardClose">Закрыть</button></div>
+    </div>
+  </div>
+
+<script>
+// === Настройки/режимы ===
+const MODES = {
+  easy:   { time: 80, lives: 5, gravity: 1900 },
+  normal: { time: 60, lives: 3, gravity: 2000 },
+  hard:   { time: 45, lives: 2, gravity: 2150 },
+};
+const SKINS = {
+  blue:  ['#4fb6dd','#2a6c86'],
+  green: ['#73e58a','#2c7a3a'],
+  pink:  ['#ff7ccf','#a83f86'],
+  gold:  ['#ffd76a','#a8862c'],
+};
+
+// === Плиточные уровни ===
+const LEVELS = [
+  [
+    "........................................................",
+    "........................................................",
+    ".............C....................C.....................",
+    "........................................................",
+    ".....#####..................#####.......................",
+    "........................................................",
+    "..S...........####......................C...............",
+    "..............#....#....................................",
+    "..............#....#..............####.................G",
+    "#####.........#....#....C.........#..#..................",
+    "#...#..C......#....#..............#..#..C...............",
+    "#...#.........#....#..............#..#..................",
+    "#...########..#....######.........#..#########..........",
+    "#......................................................#",
+    "########################################################",
+  ],
+  [
+    "........................................................",
+    "............................C...................C.......",
+    ".....................#####..............................",
+    "..............C......#...#.....................C........",
+    "..S..................#...#.............................G",
+    "#############........#...#..............#####...........",
+    "#...........#........#...#..............#...#...........",
+    "#..C........#........#...#####..........#...#...........",
+    "#...........#........#.......#..........#...#...........",
+    "#...........######...#.......#..C.......#...#...........",
+    "#................#...#.......######.....#...#...........",
+    "#................#...#..................#...#..C........",
+    "#..#########..^..#...#..^..^..^..#..^..#...#####........",
+    "#......................................................#",
+    "########################################################",
+  ],
+  [
+    "...................................................G....",
+    "........................................................",
+    "..S......C.....#####..............C.....................",
+    "..........#.....#..#..........................#####.....",
+    "....C.....#.....#..#...........C.............#...#.....",
+    "..........#.....#..#.........................#...#.....",
+    "#####..##########..###########...............#...#.....",
+    "#..................#.........#...............#...#.....",
+    "#.......C..........#...C.....#.......C.......#...#.....",
+    "#..................#.........#................#...#.....",
+    "#..........#########.........###########......#...#.....",
+    "#.............................................#...#.....",
+    "#..^..^..^..^..^..^..^..^..^..^..^..^..^..^..#...#.....",
+    "#.............................................#...#.....",
+    "########################################################",
+  ],
+];
+
+// Генерация случайного уровня
+function makeRandomLevel(seed=Date.now()%1e9, W=64, H=16){
+  const rnd = mulberry(seed);
+  const g = Array.from({length:H}, ()=>Array(W).fill('.'));
+  for(let x=0;x<W;x++) g[H-1][x] = '#';
+  g[H-2][W-2] = 'G';
+  g[H-2][2] = 'S';
+  // платформы
+  for(let i=0;i<22;i++){
+    const y = 3 + (rnd()* (H-6) |0);
+    const x0 = 2 + (rnd()* (W-10) |0);
+    const len = 3 + (rnd()*8|0);
+    for(let x=x0;x<Math.min(W-2,x0+len);x++) g[y][x]='#';
+    if(rnd()<0.7) g[y-1][x0+1]='C';
+  }
+  // шипы
+  for(let i=0;i<12;i++){
+    const x = 3 + (rnd()*(W-6)|0); g[H-2][x]='^';
+  }
+  return g.map(r=>r.join(''));
+}
+function mulberry(a){return function(){var t=a+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;}}
+
+// === Базовая физика/рендер ===
+const TILE=32; let GRAVITY=2000, MOVE_SPEED=260, JUMP_V=640, MAX_FALL=1200, FRICTION=0.82, AIR_CTRL=0.94;
+let START_TIME=60, START_LIVES=3;
+const canvas=document.getElementById('game'); const ctx=canvas.getContext('2d',{alpha:false});
+const off=('OffscreenCanvas' in window)?new OffscreenCanvas(64,64):document.createElement('canvas'); off.width=off.height=64; const offCtx=off.getContext('2d');
+
+const hudLevel=byId('hudLevel'), hudCoins=byId('hudCoins'), hudTime=byId('hudTime'), hudLives=byId('hudLives'), hudFps=byId('hudFps');
+const panelStart=byId('panelStart'), panelPause=byId('panelPause'), panelFinish=byId('panelFinish');
+const panelBoard=byId('panelBoard'), boardList=byId('boardList');
+const btnStart=byId('btnStart'), btnTutorial=byId('btnTutorial'), btnResume=byId('btnResume'), btnRestart=byId('btnRestart');
+const btnAgain=byId('btnAgain'), btnNext=byId('btnNext'), btnMenu=byId('btnMenu'), btnQuit=byId('btnQuit');
+const btnBoard=byId('btnBoard'), btnBoardClose=byId('btnBoardClose');
+const selDiff=byId('selDiff'), selSkin=byId('selSkin'), selLevel=byId('selLevel');
+const touch=byId('touch');
+
+const store = {
+  get k(){ return JSON.parse(localStorage.getItem('radmir_opts')||'{}'); },
+  set k(v){ localStorage.setItem('radmir_opts', JSON.stringify(v)); },
+  saveScore(mode, level, coins, timeLeft){
+    const key = 'radmir_scores';
+    const d = JSON.parse(localStorage.getItem(key)||'{}');
+    const list = d[mode]||[]; // [{level, coins, timeLeft, date}]
+    const rec = {level, coins, timeLeft, date: Date.now()};
+    list.push(rec); list.sort((a,b)=> (b.coins-a.coins)|| (b.timeLeft-a.timeLeft));
+    d[mode]=list.slice(0,20);
+    localStorage.setItem(key, JSON.stringify(d));
+  },
+  loadScores(){ return JSON.parse(localStorage.getItem('radmir_scores')||'{}'); }
+};
+
+const state={ started:false, paused:false, over:false, time:START_TIME, lives:START_LIVES, coins:0, levelIndex:0, mode:'normal', skin:'blue'};
+
+function byId(id){return document.getElementById(id)}
+function resize(){ const dpr=Math.max(1,Math.min(3,devicePixelRatio||1)); const r=canvas.getBoundingClientRect(); canvas.width=(r.width*dpr)|0; canvas.height=(r.height*dpr)|0; ctx.setTransform(dpr,0,0,dpr,0,0); }
+addEventListener('resize',resize); resize();
+
+// Партиклы
+const MAX_PART=220; const parts=Array.from({length:MAX_PART},()=>({x:0,y:0,vx:0,vy:0,a:0,life:0,max:0,hue:190})); let lastPart=0;
+function spawnBurst(x,y,hue=190,n=18){ for(let i=0;i<n;i++){ const p=parts[(lastPart++)%MAX_PART]; p.x=x;p.y=y;p.vx=(Math.random()*2-1)*140;p.vy=-Math.random()*220-60;p.life=0;p.max=0.6+Math.random()*0.4;p.hue=hue;p.a=1; } }
+
+function drawCoinToOff(){ offCtx.clearRect(0,0,64,64); const g=offCtx.createRadialGradient(32,22,8,32,32,30); g.addColorStop(0,'#fff'); g.addColorStop(0.3,'#ffe9a8'); g.addColorStop(1,'#b98f2d'); offCtx.fillStyle=g; offCtx.beginPath(); offCtx.arc(32,32,22,0,Math.PI*2); offCtx.fill(); }
+drawCoinToOff();
+
+// Аудио (микро WebAudio синт)
+let AC; function beep(type='sine', freq=440, dur=0.08, vol=0.05){ try{ AC=AC||new (window.AudioContext||window.webkitAudioContext)(); const o=AC.createOscillator(); const g=AC.createGain(); o.type=type; o.frequency.value=freq; g.gain.value=vol; o.connect(g).connect(AC.destination); o.start(); o.stop(AC.currentTime+dur);}catch(e){} }
+const sfx={ jump:()=>beep('sine',700,0.08,0.06), coin:()=>beep('triangle',880,0.07,0.05), hit:()=>beep('sawtooth',220,0.12,0.06), win:()=>{beep('square',660,0.09,0.06); setTimeout(()=>beep('square',880,0.12,0.06),90);} };
+
+// Сущности уровня
+let LEVEL=[], H=0, W=0; let startPos={x:64,y:64}, goalPos={x:512,y:256}; const coins=[], spikes=[];
+const player={ x:0,y:0,w:22,h:22,vx:0,vy:0,onGround:false,facing:1 };
+const cam={x:0,y:0};
+
+function solid(x,y){ if(x<0||y<0||x>=W||y>=H) return true; return LEVEL[y].charCodeAt(x)===35; }
+
+function parseLevel(arr){ coins.length=0; spikes.length=0; H=arr.length; W=arr[0].length; LEVEL=arr; for(let y=0;y<H;y++)for(let x=0;x<W;x++){ const ch=arr[y][x]; if(ch==='C') coins.push({x:x*TILE+TILE/2,y:y*TILE+TILE/2,taken:false,t:Math.random()*6.28}); if(ch==='^') spikes.push({x:x*TILE,y:y*TILE}); if(ch==='S') startPos={x:x*TILE,y:y*TILE}; if(ch==='G') goalPos={x:x*TILE,y:y*TILE}; }
+  player.x=startPos.x+2; player.y=startPos.y-16; player.vx=0; player.vy=0; player.onGround=false;
+}
+
+// Управление
+const key={left:0,right:0,jump:0};
+addEventListener('keydown',e=>{ if(e.repeat) return; const k=e.code; if(k==='ArrowLeft'||k==='KeyA') key.left=1; if(k==='ArrowRight'||k==='KeyD') key.right=1; if(k==='Space') key.jump=1; if(k==='KeyP') togglePause(); },{passive:false});
+addEventListener('keyup',e=>{ const k=e.code; if(k==='ArrowLeft'||k==='KeyA') key.left=0; if(k==='ArrowRight'||k==='KeyD') key.right=0; if(k==='Space') key.jump=0; },{passive:true});
+let touchState={left:0,right:0,jump:0};
+touch.addEventListener('touchstart',e=>{ for(const t of e.changedTouches){ const el=document.elementFromPoint(t.clientX,t.clientY); if(!el||!el.dataset) continue; if(el.dataset.act==='left') touchState.left=1; if(el.dataset.act==='right') touchState.right=1; if(el.dataset.act==='jump') touchState.jump=1; } e.preventDefault(); },{passive:false});
+touch.addEventListener('touchend',()=>{ touchState={left:0,right:0,jump:0}; });
+
+btnStart.addEventListener('click',()=>{ state.mode=selDiff.value; state.skin=selSkin.value; state.levelIndex=selLevel.value==='rand'?'rand':(+selLevel.value|0); applyMode(); saveOpts(); startGame(); });
+btnTutorial.addEventListener('click',()=>alert('A/D или ←/→ — ходьба, Space — прыжок, P — пауза. На телефоне — кнопки внизу.'));
+btnResume.addEventListener('click',()=>setPause(false));
+btnRestart.addEventListener('click',restart);
+btnAgain.addEventListener('click',restart);
+btnMenu?.addEventListener('click',toMenu);
+btnQuit?.addEventListener('click',toMenu);
+btnNext.addEventListener('click',nextLevel);
+btnBoard.addEventListener('click',showBoard);
+btnBoardClose.addEventListener('click',()=>panelBoard.hidden=true);
+
+function saveOpts(){ store.k={mode:state.mode, skin:state.skin}; }
+(function loadOpts(){ const o=store.k; if(o.mode) selDiff.value=o.mode; if(o.skin) selSkin.value=o.skin; })();
+
+function applyMode(){ const m=MODES[state.mode]; START_TIME=m.time; START_LIVES=m.lives; GRAVITY=m.gravity; }
+
+function toMenu(){ state.started=false; state.over=false; state.paused=false; panelStart.hidden=false; panelPause.hidden=true; panelFinish.hidden=true; updateHUD(); }
+
+function showBoard(){ const data=store.loadScores(); const modes=['easy','normal','hard']; let html=''; for(const md of modes){ const list=data[md]||[]; html += `<h3 style="margin:6px 0">${labelMode(md)}</h3>`; if(!list.length){ html+='<p style="opacity:.7">Нет записей</p>'; continue; } html+='<ol style="margin:6px 0 14px">'; for(const r of list){ const d=new Date(r.date); html+=`<li>Ур. ${r.level+1} — монет: <b>${r.coins}</b>, время: <b>${Math.round(r.timeLeft)}с</b> <span style="opacity:.6">(${d.toLocaleDateString()} ${d.toLocaleTimeString()})</span></li>`; } html+='</ol>'; }
+  boardList.innerHTML=html; panelBoard.hidden=false;
+}
+function labelMode(m){ return m==='easy'?'Лёгкая':m==='hard'?'Сложная':'Нормальная'; }
+
+function startGame(){ state.started=true; state.paused=false; state.over=false; state.coins=0; state.time=START_TIME; state.lives=START_LIVES; panelStart.hidden=true; panelPause.hidden=true; panelFinish.hidden=true; loadLevel(state.levelIndex); updateHUD(); }
+function restart(){ state.coins=0; state.time=START_TIME; state.lives=START_LIVES; for(const c of coins) c.taken=false; player.x=startPos.x+2; player.y=startPos.y-16; player.vx=player.vy=0; player.onGround=false; state.over=false; panelFinish.hidden=true; setPause(false); updateHUD(); }
+function nextLevel(){ if(state.levelIndex==='rand'){ loadLevel('rand'); restart(); return; } if(typeof state.levelIndex==='number' && state.levelIndex<LEVELS.length-1){ state.levelIndex++; loadLevel(state.levelIndex); restart(); } else { toMenu(); }}
+function togglePause(){ setPause(!state.paused); }
+function setPause(p){ if(!state.started||state.over) return; state.paused=p; panelPause.hidden=!p; }
+
+function loadLevel(idx){ let arr; if(idx==='rand'){ arr=makeRandomLevel(); } else { arr=LEVELS[idx]||LEVELS[0]; } parseLevel(arr); hudLevel.textContent='Уровень: '+(idx==='rand'?'Random':(idx+1)); }
+
+panelStart.hidden=false; // показать меню при загрузке
+
+// Основной цикл
+let acc=0,lastTs=performance.now(); const STEP=1/60; let frame=0,fps=0,fpsAcc=0,fpsFrames=0;
+function loop(ts){ const dt=Math.min(0.05,(ts-lastTs)/1000); lastTs=ts; acc+=dt; fpsAcc+=dt; fpsFrames++; if(fpsAcc>=0.5){ fps=(fpsFrames/fpsAcc)|0; fpsAcc=0; fpsFrames=0; hudFps.textContent=fps+" FPS"; }
+  while(acc>=STEP){ update(STEP); acc-=STEP; } render(); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+
+function update(dt){ if(!state.started||state.paused||state.over) return; state.time-=dt; if(state.time<0){ die(true); }
+  const left=key.left||touchState.left, right=key.right||touchState.right, jump=key.jump||touchState.jump;
+  if(left&&!right){ player.vx-=MOVE_SPEED*dt*4; player.facing=-1; } else if(right&&!left){ player.vx+=MOVE_SPEED*dt*4; player.facing=1; } else { player.vx*=player.onGround?FRICTION:AIR_CTRL; if(Math.abs(player.vx)<5) player.vx=0; }
+  if(jump&&player.onGround){ player.vy=-JUMP_V; player.onGround=false; spawnBurst(player.x+player.w/2,player.y+player.h,200); sfx.jump(); }
+  player.vy+=GRAVITY*dt; if(player.vy>MAX_FALL) player.vy=MAX_FALL;
+  moveAxis(dt,'x'); moveAxis(dt,'y');
+  for(let i=0;i<coins.length;i++){ const c=coins[i]; if(c.taken) continue; const dx=(player.x+player.w/2)-c.x; const dy=(player.y+player.h/2)-c.y; if(dx*dx+dy*dy<20*20){ c.taken=true; state.coins++; hudCoins.textContent='Монет: '+state.coins; spawnBurst(c.x,c.y,55); sfx.coin(); } }
+  for(let i=0;i<spikes.length;i++){ const s=spikes[i]; if(aabb(player.x,player.y,player.w,player.h,s.x,s.y+TILE-8,TILE,8)){ die(false); break; } }
+  if(aabb(player.x,player.y,player.w,player.h,goalPos.x,goalPos.y,TILE,TILE)){ finish(true); }
+  const viewW=canvas.clientWidth, viewH=canvas.clientHeight; cam.x=clamp(player.x - viewW/2 + player.w/2, 0, W*TILE - viewW); cam.y=clamp(player.y - viewH/2 + player.h/2, 0, H*TILE - viewH);
+  for(let i=0;i<MAX_PART;i++){ const p=parts[i]; if(p.life>=p.max) continue; p.life+=dt; p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=1400*dt; p.a=1-p.life/p.max; }
+  updateHUD(); }
+
+function die(timeout){ state.lives--; spawnBurst(player.x+player.w/2,player.y+player.h/2,0,26); sfx.hit(); if(state.lives<0||timeout){ finish(false); return; } player.x=startPos.x+2; player.y=startPos.y-16; player.vx=0; player.vy=0; player.onGround=false; state.time=Math.max(0,state.time-5); }
+
+function finish(win){ state.over=true; state.paused=false; panelPause.hidden=true; panelFinish.hidden=false; const left=Math.max(0,Math.round(state.time)); const coins=state.coins; const mode=labelMode(state.mode); document.getElementById('finishTitle').textContent = win ? 'С днём рождения! 🎉' : 'Игра окончена'; document.getElementById('finishText').textContent = win ? 'Ты добрался до тортика!' : 'Попробуй ещё раз — успей к торту!'; document.getElementById('finishScore').textContent = `Результат: монет ${coins}, время ${left}с, режим: ${mode}, уровень: ${hudLevel.textContent.split(': ')[1]}`; if(win){ sfx.win(); store.saveScore(state.mode, typeof state.levelIndex==='number'?state.levelIndex:0, coins, left); }
+}
+
+function updateHUD(){ hudTime.textContent='Время: '+Math.max(0,Math.ceil(state.time)); hudLives.textContent='Жизни: '+Math.max(0,state.lives); hudCoins.textContent='Монет: '+state.coins; }
+function aabb(ax,ay,aw,ah,bx,by,bw,bh){ return ax<bx+bw && ax+aw>bx && ay<by+bh && ay+ah>by; }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+
+function moveAxis(dt,axis){ const isX=axis==='x'; let v=isX?player.vx:player.vy; let sign=v>0?1:(v<0?-1:0); if(v===0) return; const step=v*dt; if(isX) player.x+=step; else player.y+=step; const left=Math.floor(player.x/TILE), right=Math.floor((player.x+player.w)/TILE), top=Math.floor(player.y/TILE), bottom=Math.floor((player.y+player.h)/TILE); for(let ty=top; ty<=bottom; ty++){ for(let tx=left; tx<=right; tx++){ if(!solid(tx,ty)) continue; const bx=tx*TILE, by=ty*TILE, bw=TILE, bh=TILE; if(!aabb(player.x,player.y,player.w,player.h,bx,by,bw,bh)) continue; if(isX){ if(sign>0) player.x=bx-player.w-0.01; else player.x=bx+bw+0.01; player.vx=0; } else { if(sign>0){ player.y=by-player.h-0.01; player.vy=0; player.onGround=true; } else { player.y=by+bh+0.01; player.vy=0; } } } } if(isX) player.vx=v; else player.vy=v; }
+
+// Рендер
+function render(){ const w=canvas.clientWidth, h=canvas.clientHeight; ctx.clearRect(0,0,w,h);
+  // звёздный параллакс
+  ctx.save(); ctx.globalAlpha=0.35; for(let i=0;i<80;i++){ const sx=((i*123 + frame*0.2) % (W*TILE)) - cam.x*0.3; const sy=(i*57 % (H*TILE)) - cam.y*0.3; const x=(sx - cam.x*0.2) % (w+200) - 100; const y=(sy - cam.y*0.2) % (h+200) - 100; ctx.fillStyle='rgba(255,255,255,.15)'; ctx.fillRect(x,y,2,2); } ctx.restore();
+  // тайлы
+  const startXT=Math.max(0,Math.floor(cam.x/TILE)-2), endXT=Math.min(W-1,Math.floor((cam.x+w)/TILE)+2); const startYT=Math.max(0,Math.floor(cam.y/TILE)-2), endYT=Math.min(H-1,Math.floor((cam.y+h)/TILE)+2);
+  for(let y=startYT;y<=endYT;y++) for(let x=startXT;x<=endXT;x++){ if(LEVEL[y].charCodeAt(x)===35){ const px=x*TILE-cam.x, py=y*TILE-cam.y; ctx.fillStyle=(x+y)&1?'#1b2340':'#232d56'; ctx.fillRect(px,py,TILE,TILE); ctx.fillStyle='rgba(255,255,255,.035)'; ctx.fillRect(px,py,TILE,4); ctx.fillRect(px,py,4,TILE); ctx.fillStyle='rgba(0,0,0,.18)'; ctx.fillRect(px,py+TILE-3,TILE,3); ctx.fillRect(px+TILE-3,py,3,TILE); }}
+  // монеты
+  for(let i=0;i<coins.length;i++){ const c=coins[i]; if(c.taken) continue; c.t+=0.08; const px=c.x-cam.x, py=c.y-cam.y+Math.sin(c.t)*2; ctx.drawImage(off,px-22,py-22,44,44); }
+  // финиш-торт
+  drawCake(goalPos.x - cam.x + 16, goalPos.y - cam.y + 16, 1);
+  // шипы
+  ctx.fillStyle='#5f2a37'; for(let i=0;i<spikes.length;i++){ const s=spikes[i]; const px=s.x-cam.x, py=s.y-cam.y; ctx.beginPath(); ctx.moveTo(px,py+TILE); ctx.lineTo(px+TILE/2,py+TILE-10); ctx.lineTo(px+TILE,py+TILE); ctx.closePath(); ctx.fill(); }
+  // игрок со скином
+  const px=player.x-cam.x, py=player.y-cam.y; ctx.save(); ctx.fillStyle='rgba(0,0,0,.35)'; ctx.fillRect(px+3,py+3,player.w,player.h); const [c1,c2]=SKINS[state.skin]||SKINS.blue; const g=ctx.createLinearGradient(px,py,px,py+player.h); g.addColorStop(0,c1); g.addColorStop(1,c2); ctx.fillStyle=g; ctx.fillRect(px,py,player.w,player.h); ctx.fillStyle='#0b1020'; const eyeX=px+(player.facing>0?12:6), eyeY=py+8; ctx.fillRect(eyeX,eyeY,4,4); ctx.restore();
+  // партиклы
+  for(let i=0;i<MAX_PART;i++){ const p=parts[i]; if(p.life>=p.max) continue; ctx.globalAlpha=p.a*0.9; ctx.fillStyle=`hsl(${p.hue} 90% 70%)`; ctx.fillRect(p.x-cam.x,p.y-cam.y,2,2); } ctx.globalAlpha=1; frame++; }
+
+function drawCake(x,y,scale=1){ const w=22*scale, h=20*scale; ctx.fillStyle='rgba(255,255,255,.15)'; ctx.beginPath(); ctx.ellipse(x,y+14*scale,22*scale,6*scale,0,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#ffd1a6'; ctx.fillRect(x-w/2,y-h/2,w,h); ctx.fillStyle='#cc8f6b'; ctx.fillRect(x-w/2,y-h/2+10*scale,w,5*scale); ctx.fillStyle='#fff'; ctx.fillRect(x-1*scale,y-h/2-8*scale,2*scale,8*scale); ctx.fillStyle='#ffb200'; ctx.beginPath(); ctx.arc(x,y-h/2-10*scale,3*scale,0,Math.PI*2); ctx.fill(); }
+
+// Автопауза при скрытии вкладки
+addEventListener('visibilitychange',()=>{ if(document.hidden) setPause(true); });
+
+</script>
+</body>
 </html>
